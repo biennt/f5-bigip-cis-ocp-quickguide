@@ -1,5 +1,7 @@
 
 # Specific tasks for the UDF lab only
+(lab link: https://udf.f5.com/b/35de67cc-3c12-4da7-9b63-d5ff2879712f#documentation)
+
 We will do most of the tasks under cloud-user
 ```
 su - cloud-user
