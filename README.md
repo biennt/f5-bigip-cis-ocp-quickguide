@@ -369,3 +369,130 @@ Content-Type: text/html; charset=UTF-8
 Set-Cookie: BIGipServer~ocp~Shared~openshift_default_f5_hello_world_web=486863882.36895.0000; path=/; Httponly
 ```
 
+Take a look at BIG-IP Configuration Utility:
+- Partition ocp
+- Virtual Server
+- Traffic Policy
+- Pool and pool members
+- Static routes
+
+# Deploy Hello-World Using ConfigMap w/ AS3
+
+Create file deployment-hello-world.yaml (as same as the above)
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: f5-hello-world-web
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: f5-hello-world-web
+  template:
+    metadata:
+      labels:
+        app: f5-hello-world-web
+    spec:
+      containers:
+      - env:
+        - name: service_name
+          value: f5-hello-world-web
+        image: f5devcentral/f5-hello-world:develop
+        imagePullPolicy: IfNotPresent
+        name: f5-hello-world-web
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+```
+
+Create file clusterip-service-hello-world.yaml (as same as above)
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: f5-hello-world-web
+  namespace: default
+  labels:
+    app: f5-hello-world-web
+    cis.f5.com/as3-tenant: AS3
+    cis.f5.com/as3-app: A1
+    cis.f5.com/as3-pool: web_pool
+spec:
+  ports:
+  - name: f5-hello-world-web
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  type: ClusterIP
+  selector:
+    app: f5-hello-world-web
+```
+
+Create file configmap-hello-world.yaml
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: f5-as3-declaration
+  namespace: default
+  labels:
+    f5type: virtual-server
+    as3: "true"
+data:
+  template: |
+    {
+        "class": "AS3",
+        "declaration": {
+            "class": "ADC",
+            "schemaVersion": "3.10.0",
+            "label": "http",
+            "remark": "A1 example",
+            "AS3": {
+                "class": "Tenant",
+                "A1": {
+                    "class": "Application",
+                    "template": "http",
+                    "serviceMain": {
+                        "class": "Service_HTTP",
+                        "virtualAddresses": [
+                            "10.1.10.11"
+                        ],
+                        "pool": "web_pool",
+                        "virtualPort": 80
+                    },
+                    "web_pool": {
+                        "class": "Pool",
+                        "monitors": [
+                            "http"
+                        ],
+                        "members": [
+                            {
+                                "servicePort": 8080,
+                                "serverAddresses": []
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+```
+Create the resources:
+```
+oc create -f deployment-hello-world.yaml
+oc create -f clusterip-service-hello-world.yaml
+oc create -f configmap-hello-world.yaml
+```
+Test:
+```
+curl -I http://10.1.10.11
+```
+Question: why don't you have to specify the Host header and it still works?
+
+Let do a scale up:
+```
+oc scale --replicas=10 deployment/f5-hello-world-web
+```
+Take a look at BIG-IP GUI (AS3 partition): Local traffic --> Pool --> web_pool (members)
