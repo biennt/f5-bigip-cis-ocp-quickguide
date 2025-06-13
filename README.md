@@ -1,5 +1,3 @@
-# f5-bigip-cis-ocp-quickguide
-Short guide on F5 BIG-IP CIS with Redhat OpenShift
 
 # Specific tasks for the UDF lab only
 We will do most of the tasks under cloud-user
@@ -240,6 +238,9 @@ Check if the pod is running and check the log:
 oc get pod -n kube-system
 oc logs -n kube-system k8s-bigip-ctlr-deployment-9d76d4987-n6tdk
 ```
+
+# Deploy a sample 'hello world' application
+
 Create file deployment-hello-world.yaml
 ```
 apiVersion: apps/v1
@@ -327,3 +328,44 @@ oc create -f deployment-hello-world.yaml
 oc create -f clusterip-service-hello-world.yaml
 oc create -f route-hello-world.yaml
 ```
+Check the status of the resources:
+```
+oc get all
+```
+You should see some thing like this:
+```
+NAME                                      READY   STATUS    RESTARTS   AGE
+pod/f5-hello-world-web-6669b59749-5rphb   1/1     Running   0          151m
+pod/f5-hello-world-web-6669b59749-vn8zd   1/1     Running   0          151m
+
+NAME                         TYPE           CLUSTER-IP      EXTERNAL-IP                            PORT(S)    AGE
+service/f5-hello-world-web   ClusterIP      192.168.1.163   <none>                                 8080/TCP   151m
+service/kubernetes           ClusterIP      192.168.1.1     <none>                                 443/TCP    727d
+service/openshift            ExternalName   <none>          kubernetes.default.svc.cluster.local   <none>     727d
+
+NAME                                 READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/f5-hello-world-web   2/2     2            2           151m
+
+NAME                                            DESIRED   CURRENT   READY   AGE
+replicaset.apps/f5-hello-world-web-6669b59749   2         2         2       151m
+
+NAME                                          HOST/PORT                      PATH   SERVICES             PORT   TERMINATION   WILDCARD
+route.route.openshift.io/f5-hello-world-web   mysite.f5demo.com ... 1 more   /      f5-hello-world-web   8080                 None
+```
+
+Make a test:
+```
+curl -I  -H 'Host: mysite.f5demo.com' http://10.1.10.11
+```
+
+Result should be similar to this:
+```
+HTTP/1.1 200 OK
+Date: Fri, 13 Jun 2025 07:15:09 GMT
+Server: Apache/2.4.25 (Debian)
+Vary: Accept-Encoding
+Set-Cookie: Cookie=Monster; Path=/; HttpOnly
+Content-Type: text/html; charset=UTF-8
+Set-Cookie: BIGipServer~ocp~Shared~openshift_default_f5_hello_world_web=486863882.36895.0000; path=/; Httponly
+```
+
